@@ -1,0 +1,2179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wick &amp; Ledger</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500;6..96,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+:root{
+  --void:#000000;
+  --panel:#070707;
+  --raise:#111111;
+  --white:#FFFFFF;
+  --dim:rgba(255,255,255,.62);
+  --faint:rgba(255,255,255,.38);
+  --ghost:rgba(255,255,255,.16);
+  --line:rgba(255,255,255,.22);
+  --line-lit:rgba(255,255,255,.55);
+  --flame:#E9A13B;
+  --flame-soft:rgba(233,161,59,.16);
+  --r:2px;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--void);
+  color:var(--white);
+  font-family:'IBM Plex Sans',system-ui,sans-serif;
+  font-size:15px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+h1,h2,h3,h4{margin:0;font-family:'Bodoni Moda',Georgia,serif;font-weight:400;letter-spacing:.01em;}
+.num{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;letter-spacing:-.01em;}
+.eyebrow{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.66rem;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:var(--faint);
+}
+a{color:var(--white);}
+::selection{background:var(--white);color:var(--void);}
+:focus-visible{outline:1px solid var(--white);outline-offset:2px;}
+
+/* ============ HEADER ============ */
+.app-header{
+  position:sticky;top:0;z-index:60;
+  background:var(--void);
+  border-bottom:1px solid var(--line);
+  padding:16px 26px;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:16px;flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:14px;}
+.taper{position:relative;width:16px;height:34px;flex-shrink:0;}
+.taper .body{
+  position:absolute;bottom:0;left:3px;
+  width:10px;height:25px;
+  border:1px solid var(--line-lit);
+  border-bottom:none;
+  background:linear-gradient(to top,rgba(255,255,255,.10),transparent);
+}
+.taper .wick{position:absolute;top:9px;left:50%;width:1px;height:6px;background:var(--line-lit);transform:translateX(-50%);}
+.taper .flame{
+  position:absolute;top:0;left:50%;
+  width:7px;height:11px;
+  transform:translateX(-50%);
+  background:var(--flame);
+  border-radius:50% 50% 50% 50% / 62% 62% 38% 38%;
+  filter:blur(.3px);
+  animation:flicker 3.4s ease-in-out infinite;
+}
+@keyframes flicker{
+  0%,100%{opacity:.92;transform:translateX(-50%) scaleY(1);}
+  40%{opacity:1;transform:translateX(-50%) scaleY(1.1);}
+  70%{opacity:.8;transform:translateX(-50%) scaleY(.94);}
+}
+.brand h1{font-size:1.32rem;line-height:1.1;}
+.brand .amp{font-style:italic;}
+.brand .sub{display:block;margin-top:3px;}
+.header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.save-state{display:flex;align-items:center;gap:7px;font-size:.72rem;color:var(--faint);font-family:'IBM Plex Mono',monospace;}
+.save-state .pip{width:6px;height:6px;border:1px solid var(--line-lit);}
+.save-state.dirty{color:var(--flame);}
+.save-state.dirty .pip{background:var(--flame);border-color:var(--flame);}
+#loadFileInput{display:none;}
+
+/* ============ TABS ============ */
+.tabbar{
+  position:sticky;top:67px;z-index:55;
+  display:flex;overflow-x:auto;
+  background:var(--void);
+  border-bottom:1px solid var(--line);
+  padding:0 26px;
+  scrollbar-width:none;
+}
+.tabbar::-webkit-scrollbar{display:none;}
+.tab{
+  padding:13px 20px;
+  font-size:.74rem;
+  font-family:'IBM Plex Mono',monospace;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+  color:var(--faint);
+  cursor:pointer;
+  white-space:nowrap;
+  border-bottom:1px solid transparent;
+  margin-bottom:-1px;
+  transition:color .15s;
+}
+.tab:hover{color:var(--dim);}
+.tab.active{color:var(--white);border-bottom-color:var(--white);}
+
+/* ============ LAYOUT ============ */
+.view{max-width:1180px;margin:0 auto;padding:30px 26px 90px;}
+.view-section{display:none;}
+.view-section.active{display:block;}
+.section-head{
+  display:flex;align-items:flex-end;justify-content:space-between;
+  gap:16px;flex-wrap:wrap;
+  padding-bottom:12px;margin-bottom:22px;
+  border-bottom:1px solid var(--line);
+}
+.section-head h2{font-size:1.55rem;}
+.section-head .lede{color:var(--dim);font-size:.85rem;margin-top:4px;max-width:56ch;}
+
+.panel{
+  border:1px solid var(--line);
+  background:var(--panel);
+  padding:20px;
+  margin-bottom:18px;
+}
+.panel-head{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;margin-bottom:16px;
+}
+.panel-head h3{font-size:1.05rem;}
+
+.grid{display:grid;gap:16px;}
+.g2{grid-template-columns:repeat(2,1fr);}
+.g3{grid-template-columns:repeat(3,1fr);}
+.g4{grid-template-columns:repeat(4,1fr);}
+
+/* ============ BUTTONS ============ */
+.btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:8px 15px;
+  border:1px solid var(--line-lit);
+  background:transparent;
+  color:var(--white);
+  font-size:.74rem;
+  font-family:'IBM Plex Mono',monospace;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  border-radius:var(--r);
+  cursor:pointer;
+  transition:background .14s,color .14s,border-color .14s;
+}
+.btn:hover{background:var(--white);color:var(--void);border-color:var(--white);}
+.btn-solid{background:var(--white);color:var(--void);border-color:var(--white);}
+.btn-solid:hover{background:transparent;color:var(--white);}
+.btn-quiet{border-color:var(--ghost);color:var(--dim);}
+.btn-quiet:hover{background:transparent;border-color:var(--white);color:var(--white);}
+.btn-sm{padding:5px 11px;font-size:.66rem;}
+.btn-warn:hover{background:var(--flame);border-color:var(--flame);color:var(--void);}
+.btn:disabled{opacity:.3;cursor:not-allowed;}
+.btn:disabled:hover{background:transparent;color:var(--white);border-color:var(--line-lit);}
+.row-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;}
+
+/* ============ FORMS ============ */
+.field{margin-bottom:14px;}
+.field label,.lbl{
+  display:block;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--faint);margin-bottom:6px;
+}
+input[type=text],input[type=number],input[type=date],select,textarea{
+  width:100%;
+  padding:9px 11px;
+  background:var(--raise);
+  border:1px solid var(--line);
+  border-radius:var(--r);
+  color:var(--white);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.86rem;
+}
+input[type=text],textarea{font-family:'IBM Plex Sans',sans-serif;}
+input:focus,select:focus,textarea:focus{border-color:var(--white);outline:none;}
+select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%),linear-gradient(135deg,var(--dim) 50%,transparent 50%);background-position:calc(100% - 15px) 55%,calc(100% - 10px) 55%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:30px;}
+input::placeholder,textarea::placeholder{color:var(--ghost);}
+.hint{font-size:.72rem;color:var(--faint);margin-top:5px;}
+.inline-fields{display:grid;gap:12px;grid-template-columns:repeat(2,1fr);}
+.inline-fields.three{grid-template-columns:repeat(3,1fr);}
+
+.seg{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;}
+.seg button{
+  flex:1;padding:9px 8px;
+  background:transparent;border:none;
+  border-right:1px solid var(--line);
+  color:var(--faint);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;
+  cursor:pointer;
+}
+.seg button:last-child{border-right:none;}
+.seg button.active{background:var(--white);color:var(--void);}
+
+/* ============ TABLES ============ */
+table{width:100%;border-collapse:collapse;}
+th{
+  text-align:left;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--faint);font-weight:400;
+  padding:0 12px 9px;
+  border-bottom:1px solid var(--line);
+  white-space:nowrap;
+}
+td{
+  padding:12px;
+  border-bottom:1px solid rgba(255,255,255,.09);
+  font-size:.86rem;
+  vertical-align:middle;
+}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:rgba(255,255,255,.035);}
+.r{text-align:right;}
+.tname{font-weight:500;}
+.tsub{display:block;font-size:.72rem;color:var(--faint);margin-top:2px;}
+.table-wrap{overflow-x:auto;}
+
+.tag{
+  display:inline-block;
+  padding:2px 8px;
+  border:1px solid var(--line);
+  border-radius:var(--r);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--dim);
+}
+.tag-lit{border-color:var(--flame);color:var(--flame);}
+.tag-solid{background:var(--white);color:var(--void);border-color:var(--white);}
+
+/* ============ STATS ============ */
+.stat{border:1px solid var(--line);padding:15px 16px;background:var(--panel);}
+.stat .k{font-family:'IBM Plex Mono',monospace;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);}
+.stat .v{font-family:'IBM Plex Mono',monospace;font-size:1.5rem;margin-top:7px;font-variant-numeric:tabular-nums;}
+.stat .v.sm{font-size:1.15rem;}
+.stat .note{font-size:.72rem;color:var(--faint);margin-top:4px;}
+.stat.lit{border-color:var(--flame);}
+.stat.lit .v{color:var(--flame);}
+
+/* ============ MELT BAR (signature) ============ */
+.melt{margin-top:6px;}
+.melt-bar{
+  display:flex;height:38px;
+  border:1px solid var(--line-lit);
+  background:var(--void);
+  overflow:hidden;
+}
+.melt-seg{position:relative;min-width:2px;border-right:1px solid var(--void);}
+.melt-seg:last-child{border-right:none;}
+.melt-legend{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));
+  gap:9px 16px;margin-top:14px;
+}
+.leg{display:flex;align-items:center;gap:9px;font-size:.76rem;}
+.leg .sw{width:15px;height:15px;border:1px solid var(--line-lit);flex-shrink:0;}
+.leg .nm{color:var(--dim);flex:1;}
+.leg .vl{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;}
+.leg.zero{opacity:.32;}
+
+/* engraved fills — the melt bar reads as hatching, not color */
+.f-wax{background:rgba(255,255,255,.92);}
+.f-fragrance{background:repeating-linear-gradient(45deg,rgba(255,255,255,.85) 0 3px,transparent 3px 7px);}
+.f-wick{background:repeating-linear-gradient(90deg,rgba(255,255,255,.85) 0 1px,transparent 1px 5px);}
+.f-dye{background-color:transparent;background-image:radial-gradient(rgba(255,255,255,.85) 1.1px,transparent 1.2px);background-size:6px 6px;}
+.f-container{background:repeating-linear-gradient(45deg,rgba(255,255,255,.55) 0 1px,transparent 1px 6px),repeating-linear-gradient(-45deg,rgba(255,255,255,.55) 0 1px,transparent 1px 6px);}
+.f-packaging{background:repeating-linear-gradient(-45deg,rgba(255,255,255,.85) 0 3px,transparent 3px 9px);}
+.f-labor{background:repeating-linear-gradient(0deg,rgba(255,255,255,.85) 0 1px,transparent 1px 5px);}
+.f-overhead{background:rgba(255,255,255,.26);}
+
+/* ============ MODAL ============ */
+.modal-overlay{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.86);
+  backdrop-filter:blur(2px);
+  display:none;align-items:flex-start;justify-content:center;
+  padding:34px 18px;overflow-y:auto;
+}
+.modal-overlay.open{display:flex;}
+.modal{
+  width:100%;max-width:660px;
+  background:var(--void);
+  border:1px solid var(--line-lit);
+  padding:26px;
+}
+.modal.wide{max-width:860px;}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--line);}
+.modal-head h3{font-size:1.3rem;}
+.modal-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:24px;padding-top:18px;border-top:1px solid var(--line);}
+.x{background:none;border:none;color:var(--faint);font-size:1.3rem;cursor:pointer;line-height:1;padding:0 4px;}
+.x:hover{color:var(--white);}
+
+.sub-row{
+  display:grid;gap:10px;align-items:end;
+  grid-template-columns:1fr 92px 34px;
+  margin-bottom:10px;
+}
+.icon-btn{
+  width:34px;height:36px;
+  border:1px solid var(--line);background:transparent;color:var(--faint);
+  cursor:pointer;border-radius:var(--r);font-size:1rem;line-height:1;
+}
+.icon-btn:hover{border-color:var(--white);color:var(--white);}
+
+/* ============ MISC ============ */
+.empty{
+  border:1px dashed var(--line);
+  padding:38px 24px;text-align:center;
+}
+.empty h4{font-size:1.05rem;margin-bottom:7px;}
+.empty p{color:var(--faint);font-size:.84rem;margin:0 0 16px;max-width:44ch;margin-left:auto;margin-right:auto;}
+.toast{
+  position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120%);
+  background:var(--white);color:var(--void);
+  padding:11px 20px;
+  font-family:'IBM Plex Mono',monospace;font-size:.76rem;letter-spacing:.04em;
+  z-index:300;transition:transform .26s cubic-bezier(.2,.8,.3,1);
+  max-width:88vw;
+}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.warn{background:var(--flame);}
+.divider{height:1px;background:var(--line);margin:22px 0;}
+.warn-text{color:var(--flame);}
+.dim{color:var(--dim);}
+.faint{color:var(--faint);}
+.mono{font-family:'IBM Plex Mono',monospace;}
+.nowrap{white-space:nowrap;}
+.bar-mini{height:4px;background:rgba(255,255,255,.14);position:relative;margin-top:6px;}
+.bar-mini span{position:absolute;left:0;top:0;bottom:0;background:var(--white);}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important;}
+}
+@media (max-width:860px){
+  .g4{grid-template-columns:repeat(2,1fr);}
+  .g3{grid-template-columns:repeat(2,1fr);}
+}
+@media (max-width:620px){
+  .view{padding:22px 16px 80px;}
+  .app-header{padding:14px 16px;}
+  .tabbar{padding:0 16px;top:63px;}
+  .tab{padding:12px 14px;}
+  .g2,.g3,.g4{grid-template-columns:1fr;}
+  .inline-fields,.inline-fields.three{grid-template-columns:1fr;}
+  .modal{padding:20px 16px;}
+}
+</style>
+</head>
+<body>
+<header class="app-header">
+  <div class="brand">
+    <div class="taper" aria-hidden="true">
+      <div class="flame"></div><div class="wick"></div><div class="body"></div>
+    </div>
+    <div>
+      <h1>Wick <span class="amp">&amp;</span> Ledger</h1>
+      <span class="eyebrow sub">Poe&rsquo;s Apothecary</span>
+    </div>
+  </div>
+  <div class="header-actions">
+    <span class="save-state" id="saveState"><span class="pip"></span><span id="saveStateText">Saved to file</span></span>
+    <button class="btn btn-quiet btn-sm" id="loadBtn">Load file</button>
+    <input type="file" id="loadFileInput" accept="application/json">
+    <button class="btn btn-solid btn-sm" id="saveBtn">Save file</button>
+  </div>
+</header>
+
+<nav class="tabbar" id="tabbar">
+  <div class="tab active" data-view="dashboard">Dashboard</div>
+  <div class="tab" data-view="containers">Containers</div>
+  <div class="tab" data-view="ingredients">Ingredients</div>
+  <div class="tab" data-view="recipes">Recipes</div>
+  <div class="tab" data-view="batches">Batches</div>
+  <div class="tab" data-view="finished">Finished stock</div>
+  <div class="tab" data-view="sales">Sales</div>
+</nav>
+
+<main class="view">
+  <section class="view-section active" id="view-dashboard"></section>
+  <section class="view-section" id="view-containers"></section>
+  <section class="view-section" id="view-ingredients"></section>
+  <section class="view-section" id="view-recipes"></section>
+  <section class="view-section" id="view-batches"></section>
+  <section class="view-section" id="view-finished"></section>
+  <section class="view-section" id="view-sales"></section>
+</main>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+/* =====================================================================
+   WICK & LEDGER — candle studio ledger for Poe's Apothecary
+   Single file. No server, no autosave. All data lives in `state` and
+   moves in and out through Save file / Load file (one JSON document).
+   ===================================================================== */
+
+const SCHEMA = 3;
+
+/* Wax fill ratio: ounces of wax by weight per fluid ounce of container
+   volume. ~0.86 is the common working figure for soy in glass. It is a
+   setting, not a constant — override globally or per recipe. */
+const DEFAULT_FILL_RATIO = 0.86;
+
+const CATEGORIES = [
+  {id:'wax',       label:'Wax',       unit:'oz'},
+  {id:'fragrance', label:'Fragrance', unit:'oz'},
+  {id:'wick',      label:'Wick',      unit:'each'},
+  {id:'dye',       label:'Dye',       unit:'g'},
+  {id:'packaging', label:'Packaging', unit:'each'},
+  {id:'other',     label:'Other',     unit:'each'}
+];
+
+const COST_KEYS = [
+  {key:'wax',       label:'Wax',       fill:'f-wax'},
+  {key:'fragrance', label:'Fragrance', fill:'f-fragrance'},
+  {key:'wick',      label:'Wick',      fill:'f-wick'},
+  {key:'dye',       label:'Dye',       fill:'f-dye'},
+  {key:'container', label:'Container', fill:'f-container'},
+  {key:'packaging', label:'Packaging', fill:'f-packaging'},
+  {key:'labor',     label:'Labor',     fill:'f-labor'},
+  {key:'overhead',  label:'Overhead',  fill:'f-overhead'}
+];
+
+const CHANNELS = ['Etsy','Market','Direct','Wholesale','Other'];
+
+function emptyState(){
+  return {
+    schema: SCHEMA,
+    settings:{
+      laborRate: 22,
+      markup: 2.5,
+      overhead: 1.50,
+      fillRatio: DEFAULT_FILL_RATIO,
+      minutesPerCandle: 6
+    },
+    containers: [],
+    ingredients: [],
+    recipes: [],
+    batches: [],
+    finished: [],   // {recipeId, qty, totalCost}
+    sales: []       // {id, recipeId, qty, unitPrice, unitCost, channel, date, notes}
+  };
+}
+
+var state = emptyState();
+var dirty = false;
+
+function markDirty(){
+  dirty = true;
+  document.getElementById('saveState').classList.add('dirty');
+  document.getElementById('saveStateText').textContent = 'Unsaved changes';
+}
+function markClean(){
+  dirty = false;
+  document.getElementById('saveState').classList.remove('dirty');
+  document.getElementById('saveStateText').textContent = 'Saved to file';
+}
+
+/* ---------------------- utilities ---------------------- */
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+function money(n){
+  if (n === null || n === undefined || isNaN(n)) n = 0;
+  const neg = n < 0;
+  return (neg ? '-$' : '$') + Math.abs(n).toFixed(2);
+}
+function qty(n, dp){
+  if (dp === undefined) dp = 2;
+  if (n === null || n === undefined || isNaN(n)) return '0';
+  return Number(n).toFixed(dp).replace(/\.?0+$/,'') || '0';
+}
+function pct(n){
+  if (!isFinite(n) || isNaN(n)) return '—';
+  return n.toFixed(1) + '%';
+}
+function num(v, fallback){
+  const n = parseFloat(v);
+  return isNaN(n) ? (fallback === undefined ? 0 : fallback) : n;
+}
+function esc(s){
+  return String(s === null || s === undefined ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function today(){ return new Date().toISOString().slice(0,10); }
+function niceDate(iso){
+  if (!iso) return '—';
+  const d = new Date(iso.length <= 10 ? iso + 'T12:00:00' : iso);
+  if (isNaN(d)) return iso;
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+}
+
+function findIngredient(id){ return state.ingredients.find(i => i.id === id) || null; }
+function findContainer(id){ return state.containers.find(c => c.id === id) || null; }
+function findRecipe(id){ return state.recipes.find(r => r.id === id) || null; }
+function ingredientsOf(cat){ return state.ingredients.filter(i => i.category === cat); }
+
+/* Unit cost for an ingredient, whether entered directly or derived
+   from a bulk purchase. */
+function unitCost(ing){
+  if (!ing) return 0;
+  if (ing.costMode === 'bulk'){
+    const q = num(ing.bulkQty);
+    return q > 0 ? num(ing.bulkCost) / q : 0;
+  }
+  return num(ing.unitCost);
+}
+function categoryUnit(cat){
+  const c = CATEGORIES.find(c => c.id === cat);
+  return c ? c.unit : 'each';
+}
+
+/* ---------------------- toast ---------------------- */
+
+var toastTimer = null;
+function toast(msg, isWarn){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('warn', !!isWarn);
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ---------------------- modal ---------------------- */
+
+function openModal(html, wide){
+  const m = document.getElementById('modalContent');
+  m.className = 'modal' + (wide ? ' wide' : '');
+  m.innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('open');
+  const first = m.querySelector('input,select,textarea');
+  if (first && first.focus) setTimeout(() => first.focus(), 30);
+}
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.getElementById('modalContent').innerHTML = '';
+}
+
+/* ---------------------- save / load ---------------------- */
+
+function saveFile(){
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'wick-and-ledger-' + today() + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  markClean();
+  toast('Saved — file downloaded');
+}
+
+/* Older files are missing newer fields. Fill them in rather than
+   rejecting the file. */
+function migrate(loaded){
+  /* Keep the defaults in a separate object — assigning `loaded` over
+     them first would replace the settings block wholesale and lose any
+     key the older file never knew about. */
+  const defaults = emptyState();
+  const s = Object.assign({}, defaults, loaded);
+  s.schema = SCHEMA;
+  s.settings = Object.assign({}, defaults.settings, loaded.settings || {});
+  ['containers','ingredients','recipes','batches','finished','sales'].forEach(k => {
+    if (!Array.isArray(s[k])) s[k] = [];
+  });
+  s.containers.forEach(c => {
+    if (c.stock === undefined) c.stock = 0;
+    if (c.lowAt === undefined) c.lowAt = 0;
+  });
+  s.ingredients.forEach(i => {
+    if (i.stock === undefined) i.stock = 0;
+    if (i.lowAt === undefined) i.lowAt = 0;
+    if (!i.costMode) i.costMode = 'unit';
+  });
+  s.recipes.forEach(r => {
+    if (!Array.isArray(r.wicks)) r.wicks = [];
+    if (!Array.isArray(r.packaging)) r.packaging = [];
+    if (r.minutes === undefined) r.minutes = s.settings.minutesPerCandle;
+    if (r.fillRatio === undefined) r.fillRatio = s.settings.fillRatio;
+  });
+  s.finished.forEach(f => {
+    if (f.totalCost === undefined) f.totalCost = 0;
+    if (f.qty === undefined) f.qty = 0;
+  });
+  return s;
+}
+
+function loadFromText(text){
+  const loaded = JSON.parse(text);
+  if (!loaded || typeof loaded !== 'object' || !Array.isArray(loaded.recipes)){
+    throw new Error('That file is not a Wick & Ledger ledger.');
+  }
+  state = migrate(loaded);
+  markClean();
+  renderAll();
+}
+
+/* ---------------------- navigation ---------------------- */
+
+function showView(name){
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === name));
+  document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+  const el = document.getElementById('view-' + name);
+  if (el) el.classList.add('active');
+  const fn = window['render' + name.charAt(0).toUpperCase() + name.slice(1)];
+  if (fn) fn();
+  try{ window.scrollTo({top:0,behavior:'instant'}); }catch(e){}
+}
+
+function renderAll(){
+  renderDashboard();
+  renderContainers();
+  renderIngredients();
+  renderRecipes();
+  renderBatches();
+  renderFinished();
+  renderSales();
+}
+</script>
+<script>
+/* =====================================================================
+   COST ENGINE
+   ===================================================================== */
+
+/* Wax poured per candle. In volume mode it comes from the container
+   size and the fill ratio; in weight mode it's entered directly. */
+function waxPerCandle(recipe){
+  if (!recipe) return 0;
+  if (recipe.fillMode === 'weight') return num(recipe.waxOz);
+  const c = findContainer(recipe.containerId);
+  if (!c) return 0;
+  const ratio = num(recipe.fillRatio, state.settings.fillRatio);
+  return num(c.volume) * ratio;
+}
+
+/* Fragrance load is a percentage of wax weight. */
+function fragrancePerCandle(recipe){
+  if (!recipe || !recipe.fragranceId) return 0;
+  return waxPerCandle(recipe) * (num(recipe.fragrancePct) / 100);
+}
+
+function costBreakdown(recipe){
+  const b = {wax:0,fragrance:0,wick:0,dye:0,container:0,packaging:0,labor:0,overhead:0};
+  if (!recipe) return Object.assign(b,{total:0,price:0});
+
+  b.wax = waxPerCandle(recipe) * unitCost(findIngredient(recipe.waxId));
+  b.fragrance = fragrancePerCandle(recipe) * unitCost(findIngredient(recipe.fragranceId));
+
+  (recipe.wicks || []).forEach(w => {
+    b.wick += num(w.qty) * unitCost(findIngredient(w.id));
+  });
+  (recipe.packaging || []).forEach(p => {
+    b.packaging += num(p.qty) * unitCost(findIngredient(p.id));
+  });
+
+  if (recipe.dyeId) b.dye = num(recipe.dyeAmt) * unitCost(findIngredient(recipe.dyeId));
+
+  const c = findContainer(recipe.containerId);
+  if (c) b.container = num(c.cost);
+
+  const minutes = num(recipe.minutes, state.settings.minutesPerCandle);
+  b.labor = (minutes / 60) * num(state.settings.laborRate);
+
+  b.overhead = recipe.overheadOverride === null || recipe.overheadOverride === undefined
+    ? num(state.settings.overhead)
+    : num(recipe.overheadOverride);
+
+  b.total = COST_KEYS.reduce((s,k) => s + b[k.key], 0);
+  const markup = recipe.markupOverride === null || recipe.markupOverride === undefined
+    ? num(state.settings.markup, 1)
+    : num(recipe.markupOverride, 1);
+  b.markup = markup;
+  b.price = b.total * markup;
+  return b;
+}
+
+/* Everything one candle of this recipe consumes, as a flat list. Used
+   for batch deduction and for max-from-stock scaling. */
+function requirements(recipe){
+  const out = [];
+  const add = (kind, id, per) => {
+    if (!id || per <= 0) return;
+    const found = out.find(r => r.kind === kind && r.id === id);
+    if (found) found.per += per;
+    else out.push({kind, id, per});
+  };
+
+  add('ingredient', recipe.waxId, waxPerCandle(recipe));
+  add('ingredient', recipe.fragranceId, fragrancePerCandle(recipe));
+  if (recipe.dyeId) add('ingredient', recipe.dyeId, num(recipe.dyeAmt));
+  (recipe.wicks || []).forEach(w => add('ingredient', w.id, num(w.qty)));
+  (recipe.packaging || []).forEach(p => add('ingredient', p.id, num(p.qty)));
+  if (recipe.containerId) add('container', recipe.containerId, 1);
+
+  return out.map(r => {
+    const src = r.kind === 'container' ? findContainer(r.id) : findIngredient(r.id);
+    return Object.assign(r, {
+      name: src ? src.name : 'Missing item',
+      unit: r.kind === 'container' ? 'each' : categoryUnit(src ? src.category : 'other'),
+      stock: src ? num(src.stock) : 0
+    });
+  });
+}
+
+/* How many candles the shelf can actually support, and what runs out
+   first. */
+function maxFromStock(recipe){
+  const reqs = requirements(recipe);
+  if (!reqs.length) return {count:0, limiter:null};
+  let count = Infinity, limiter = null;
+  reqs.forEach(r => {
+    const possible = r.per > 0 ? Math.floor(r.stock / r.per) : Infinity;
+    if (possible < count){ count = possible; limiter = r; }
+  });
+  if (!isFinite(count)) count = 0;
+  return {count: Math.max(0, count), limiter};
+}
+
+/* Anything short for a run of `count` candles. */
+function shortages(recipe, count){
+  return requirements(recipe)
+    .map(r => ({...r, need: r.per * count, short: (r.per * count) - r.stock}))
+    .filter(r => r.short > 0.0001);
+}
+
+/* ---------------------- finished stock ---------------------- */
+
+function finishedFor(recipeId){
+  let f = state.finished.find(f => f.recipeId === recipeId);
+  if (!f){ f = {recipeId, qty:0, totalCost:0}; state.finished.push(f); }
+  return f;
+}
+function avgUnitCost(recipeId){
+  const f = state.finished.find(f => f.recipeId === recipeId);
+  if (!f || f.qty <= 0) return 0;
+  return f.totalCost / f.qty;
+}
+function onHand(recipeId){
+  const f = state.finished.find(f => f.recipeId === recipeId);
+  return f ? f.qty : 0;
+}
+
+/* ---------------------- sales rollup ---------------------- */
+
+function recipeStats(recipeId){
+  const sales = state.sales.filter(s => s.recipeId === recipeId);
+  const unitsSold = sales.reduce((s,x) => s + num(x.qty), 0);
+  const revenue = sales.reduce((s,x) => s + num(x.qty) * num(x.unitPrice), 0);
+  const cogs = sales.reduce((s,x) => s + num(x.qty) * num(x.unitCost), 0);
+  const made = state.batches
+    .filter(b => b.recipeId === recipeId && b.status === 'complete')
+    .reduce((s,b) => s + num(b.count), 0);
+  const hand = onHand(recipeId);
+  return {
+    unitsSold, revenue, cogs,
+    margin: revenue - cogs,
+    marginPct: revenue > 0 ? ((revenue - cogs) / revenue) * 100 : NaN,
+    avgPrice: unitsSold > 0 ? revenue / unitsSold : 0,
+    made, onHand: hand,
+    sellThrough: made > 0 ? (unitsSold / made) * 100 : NaN
+  };
+}
+
+function totals(){
+  const revenue = state.sales.reduce((s,x) => s + num(x.qty) * num(x.unitPrice), 0);
+  const cogs = state.sales.reduce((s,x) => s + num(x.qty) * num(x.unitCost), 0);
+  const unitsSold = state.sales.reduce((s,x) => s + num(x.qty), 0);
+  const finishedValue = state.finished.reduce((s,f) => s + num(f.totalCost), 0);
+  const unitsOnHand = state.finished.reduce((s,f) => s + num(f.qty), 0);
+  const rawValue =
+    state.ingredients.reduce((s,i) => s + num(i.stock) * unitCost(i), 0) +
+    state.containers.reduce((s,c) => s + num(c.stock) * num(c.cost), 0);
+  return {
+    revenue, cogs, margin: revenue - cogs,
+    marginPct: revenue > 0 ? ((revenue - cogs) / revenue) * 100 : NaN,
+    unitsSold, finishedValue, unitsOnHand, rawValue
+  };
+}
+
+/* ---------------------- melt bar ---------------------- */
+
+/* The signature view: one candle's cost, stacked and hatched. Colour is
+   deliberately absent — each component is a different engraving. */
+function meltBar(b, opts){
+  opts = opts || {};
+  const total = b.total || 0;
+  const segs = COST_KEYS.map(k => {
+    const v = b[k.key] || 0;
+    const share = total > 0 ? (v / total) * 100 : 0;
+    return {...k, v, share};
+  });
+  const bar = segs.filter(s => s.share > 0)
+    .map(s => `<div class="melt-seg ${s.fill}" style="width:${s.share}%" title="${esc(s.label)} ${money(s.v)}"></div>`)
+    .join('');
+
+  const legend = segs
+    .filter(s => opts.hideZero ? s.v > 0 : true)
+    .map(s => `<div class="leg${s.v > 0 ? '' : ' zero'}">
+        <span class="sw ${s.fill}"></span>
+        <span class="nm">${esc(s.label)}</span>
+        <span class="vl">${money(s.v)}</span>
+      </div>`).join('');
+
+  return `<div class="melt">
+    <div class="melt-bar">${bar || '<div class="melt-seg" style="width:100%"></div>'}</div>
+    <div class="melt-legend">${legend}</div>
+  </div>`;
+}
+</script>
+<script>
+/* =====================================================================
+   DASHBOARD
+   ===================================================================== */
+
+function renderDashboard(){
+  const t = totals();
+  const s = state.settings;
+
+  const lowIngredients = state.ingredients.filter(i => num(i.lowAt) > 0 && num(i.stock) <= num(i.lowAt));
+  const lowContainers  = state.containers.filter(c => num(c.lowAt) > 0 && num(c.stock) <= num(c.lowAt));
+  const lowCount = lowIngredients.length + lowContainers.length;
+
+  const openBatches = state.batches.filter(b => b.status === 'open');
+
+  const perfRows = state.recipes.map(r => {
+    const st = recipeStats(r.id);
+    const b = costBreakdown(r);
+    return {r, st, b};
+  }).sort((a,b) => b.st.revenue - a.st.revenue);
+
+  document.getElementById('view-dashboard').innerHTML = `
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">The ledger</span>
+        <h2>Dashboard</h2>
+        <p class="lede">What the studio has made, what it has sold, and what it kept.</p>
+      </div>
+      <div class="row-actions">
+        <button class="btn btn-quiet btn-sm" onclick="showView('batches')">Batches</button>
+        <button class="btn btn-sm" onclick="openSaleModal()">Log a sale</button>
+      </div>
+    </div>
+
+    <div class="grid g4" style="margin-bottom:18px;">
+      <div class="stat">
+        <div class="k">Revenue</div>
+        <div class="v num">${money(t.revenue)}</div>
+        <div class="note">${qty(t.unitsSold,0)} candles sold</div>
+      </div>
+      <div class="stat">
+        <div class="k">Cost of goods</div>
+        <div class="v num">${money(t.cogs)}</div>
+        <div class="note">what those candles cost to make</div>
+      </div>
+      <div class="stat">
+        <div class="k">Gross margin</div>
+        <div class="v num">${money(t.margin)}</div>
+        <div class="note">${isNaN(t.marginPct) ? 'no sales yet' : pct(t.marginPct) + ' of revenue'}</div>
+      </div>
+      <div class="stat">
+        <div class="k">Stock at cost</div>
+        <div class="v num">${money(t.finishedValue + t.rawValue)}</div>
+        <div class="note">${money(t.finishedValue)} finished · ${money(t.rawValue)} raw</div>
+      </div>
+    </div>
+
+    ${openBatches.length || lowCount ? `
+    <div class="grid g2" style="margin-bottom:18px;">
+      ${openBatches.length ? `
+        <div class="stat lit">
+          <div class="k">Pouring now</div>
+          <div class="v num sm">${openBatches.length} open batch${openBatches.length === 1 ? '' : 'es'}</div>
+          <div class="note">materials already deducted, candles not counted yet ·
+            <a href="#" onclick="showView('batches');return false;">open batches</a></div>
+        </div>` : ''}
+      ${lowCount ? `
+        <div class="stat lit">
+          <div class="k">Running low</div>
+          <div class="v num sm">${lowCount} item${lowCount === 1 ? '' : 's'}</div>
+          <div class="note">${esc([...lowIngredients, ...lowContainers].slice(0,4).map(x => x.name).join(', '))}${lowCount > 4 ? ' +' + (lowCount - 4) + ' more' : ''}</div>
+        </div>` : ''}
+    </div>` : ''}
+
+    <div class="panel">
+      <div class="panel-head"><h3>Studio settings</h3><span class="eyebrow">applied to every recipe unless overridden</span></div>
+      <div class="grid g3">
+        <div class="field">
+          <label for="setLabor">Labor rate (per hour)</label>
+          <input type="number" id="setLabor" step="0.5" min="0" value="${num(s.laborRate)}" onchange="updateSetting('laborRate', this.value)">
+        </div>
+        <div class="field">
+          <label for="setMinutes">Minutes per candle</label>
+          <input type="number" id="setMinutes" step="0.5" min="0" value="${num(s.minutesPerCandle)}" onchange="updateSetting('minutesPerCandle', this.value)">
+        </div>
+        <div class="field">
+          <label for="setOverhead">Overhead per candle</label>
+          <input type="number" id="setOverhead" step="0.05" min="0" value="${num(s.overhead)}" onchange="updateSetting('overhead', this.value)">
+        </div>
+        <div class="field">
+          <label for="setMarkup">Markup multiplier</label>
+          <input type="number" id="setMarkup" step="0.1" min="0" value="${num(s.markup)}" onchange="updateSetting('markup', this.value)">
+          <div class="hint">Suggested price = total cost &times; this.</div>
+        </div>
+        <div class="field">
+          <label for="setFill">Wax fill ratio (oz per fl oz)</label>
+          <input type="number" id="setFill" step="0.01" min="0" value="${num(s.fillRatio)}" onchange="updateSetting('fillRatio', this.value)">
+          <div class="hint">Soy in glass sits near 0.86. Pour one test candle and correct this.</div>
+        </div>
+        <div class="field">
+          <label>Ledger</label>
+          <button class="btn btn-quiet btn-sm" style="width:100%;justify-content:center;" onclick="confirmReset()">Start an empty ledger</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>By recipe</h3><span class="eyebrow">made · sold · kept</span></div>
+      ${perfRows.length ? `
+      <div class="table-wrap"><table>
+        <thead><tr>
+          <th>Recipe</th>
+          <th class="r">Made</th>
+          <th class="r">Sold</th>
+          <th class="r">On hand</th>
+          <th class="r">Avg price</th>
+          <th class="r">Suggested</th>
+          <th class="r">Revenue</th>
+          <th class="r">Margin</th>
+          <th class="r">Sell-through</th>
+        </tr></thead>
+        <tbody>
+        ${perfRows.map(({r,st,b}) => `
+          <tr>
+            <td class="tname">${esc(r.name)}</td>
+            <td class="r num">${qty(st.made,0)}</td>
+            <td class="r num">${qty(st.unitsSold,0)}</td>
+            <td class="r num">${qty(st.onHand,0)}</td>
+            <td class="r num">${st.unitsSold ? money(st.avgPrice) : '—'}</td>
+            <td class="r num faint">${money(b.price)}</td>
+            <td class="r num">${money(st.revenue)}</td>
+            <td class="r num">${st.unitsSold ? money(st.margin) + ' <span class="faint">' + pct(st.marginPct) + '</span>' : '—'}</td>
+            <td class="r num">${isNaN(st.sellThrough) ? '—' : pct(st.sellThrough)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>` : `
+      <div class="empty">
+        <h4>Nothing poured yet</h4>
+        <p>Add a container and your wax, build a recipe, then start a batch. The numbers fill in from there.</p>
+        <button class="btn" onclick="showView('containers')">Start with containers</button>
+      </div>`}
+    </div>
+  `;
+}
+
+function updateSetting(key, value){
+  state.settings[key] = num(value);
+  markDirty();
+  renderAll();
+  toast('Setting updated');
+}
+
+function confirmReset(){
+  openModal(`
+    <div class="modal-head"><h3>Start an empty ledger?</h3><button class="x" onclick="closeModal()">&times;</button></div>
+    <p class="dim" style="margin-top:0;">This clears everything in the browser — recipes, inventory, batches, sales. Any JSON file you have already saved is untouched, and you can load it back.</p>
+    <div class="modal-foot">
+      <button class="btn btn-quiet" onclick="closeModal()">Keep working</button>
+      <button class="btn btn-warn" onclick="doReset()">Clear it</button>
+    </div>`);
+}
+function doReset(){
+  state = emptyState();
+  markClean();
+  closeModal();
+  renderAll();
+  toast('Ledger cleared');
+}
+</script>
+<script>
+/* =====================================================================
+   CONTAINERS
+   ===================================================================== */
+
+function renderContainers(){
+  const rows = state.containers.map(c => {
+    const low = num(c.lowAt) > 0 && num(c.stock) <= num(c.lowAt);
+    return `<tr>
+      <td class="tname">${esc(c.name)}${c.notes ? `<span class="tsub">${esc(c.notes)}</span>` : ''}</td>
+      <td class="r num">${qty(c.volume)} fl oz</td>
+      <td class="r num">${money(num(c.cost))}</td>
+      <td class="r num">${qty(c.stock,0)}${low ? ' <span class="tag tag-lit">low</span>' : ''}</td>
+      <td class="r num faint">${qty(num(c.volume) * num(state.settings.fillRatio))} oz wax</td>
+      <td class="r"><div class="row-actions">
+        <button class="btn btn-quiet btn-sm" onclick="openStockModal('container','${c.id}')">Stock</button>
+        <button class="btn btn-quiet btn-sm" onclick="openContainerModal('${c.id}')">Edit</button>
+        <button class="btn btn-quiet btn-sm btn-warn" onclick="removeContainer('${c.id}')">Delete</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('view-containers').innerHTML = `
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Vessels</span>
+        <h2>Containers</h2>
+        <p class="lede">Every jar and tin you pour into, with its volume, its cost, and how many are on the shelf.</p>
+      </div>
+      <button class="btn btn-solid" onclick="openContainerModal()">Add container</button>
+    </div>
+    <div class="panel">
+      ${state.containers.length ? `
+      <div class="table-wrap"><table>
+        <thead><tr>
+          <th>Container</th><th class="r">Volume</th><th class="r">Cost each</th>
+          <th class="r">On shelf</th><th class="r">Holds</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>` : `
+      <div class="empty">
+        <h4>No containers yet</h4>
+        <p>Add the jars and tins you pour into. Recipes in volume mode read their wax weight from the container size.</p>
+        <button class="btn" onclick="openContainerModal()">Add the first one</button>
+      </div>`}
+    </div>`;
+}
+
+function openContainerModal(id){
+  const c = id ? findContainer(id) : null;
+  openModal(`
+    <div class="modal-head">
+      <h3>${c ? 'Edit container' : 'Add container'}</h3>
+      <button class="x" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="field">
+      <label for="cName">Name</label>
+      <input type="text" id="cName" value="${esc(c ? c.name : '')}" placeholder="Amber apothecary jar, 8 oz">
+    </div>
+    <div class="inline-fields three">
+      <div class="field">
+        <label for="cVol">Volume (fl oz)</label>
+        <input type="number" id="cVol" step="0.25" min="0" value="${c ? num(c.volume) : ''}">
+      </div>
+      <div class="field">
+        <label for="cCost">Cost each</label>
+        <input type="number" id="cCost" step="0.01" min="0" value="${c ? num(c.cost) : ''}">
+      </div>
+      <div class="field">
+        <label for="cStock">On shelf</label>
+        <input type="number" id="cStock" step="1" min="0" value="${c ? num(c.stock) : 0}">
+      </div>
+    </div>
+    <div class="inline-fields">
+      <div class="field">
+        <label for="cLow">Warn at or below</label>
+        <input type="number" id="cLow" step="1" min="0" value="${c ? num(c.lowAt) : 0}">
+        <div class="hint">Leave at 0 for no warning.</div>
+      </div>
+      <div class="field">
+        <label for="cNotes">Note</label>
+        <input type="text" id="cNotes" value="${esc(c ? c.notes || '' : '')}" placeholder="supplier, lid type">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-quiet" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-solid" onclick="saveContainer(${c ? "'" + c.id + "'" : 'null'})">${c ? 'Save changes' : 'Add container'}</button>
+    </div>`);
+}
+
+function saveContainer(id){
+  const name = document.getElementById('cName').value.trim();
+  if (!name){ toast('Give the container a name', true); return; }
+  const data = {
+    name,
+    volume: num(document.getElementById('cVol').value),
+    cost: num(document.getElementById('cCost').value),
+    stock: num(document.getElementById('cStock').value),
+    lowAt: num(document.getElementById('cLow').value),
+    notes: document.getElementById('cNotes').value.trim()
+  };
+  if (id) Object.assign(findContainer(id), data);
+  else state.containers.push(Object.assign({id: uid()}, data));
+  markDirty(); closeModal(); renderAll();
+  toast(id ? 'Container updated' : 'Container added');
+}
+
+function removeContainer(id){
+  const used = state.recipes.filter(r => r.containerId === id);
+  if (used.length){
+    toast('Used by ' + used.length + ' recipe' + (used.length === 1 ? '' : 's') + ' — change those first', true);
+    return;
+  }
+  state.containers = state.containers.filter(c => c.id !== id);
+  markDirty(); renderAll(); toast('Container deleted');
+}
+
+/* =====================================================================
+   INGREDIENTS
+   ===================================================================== */
+
+function renderIngredients(){
+  const groups = CATEGORIES.map(cat => {
+    const items = ingredientsOf(cat.id);
+    if (!items.length) return '';
+    return `
+      <div class="panel">
+        <div class="panel-head">
+          <h3>${cat.label}</h3>
+          <span class="eyebrow">measured in ${cat.unit}</span>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr>
+            <th>Item</th><th class="r">Cost per ${cat.unit}</th><th class="r">Basis</th>
+            <th class="r">On shelf</th><th class="r">Value</th><th></th>
+          </tr></thead>
+          <tbody>${items.map(i => {
+            const low = num(i.lowAt) > 0 && num(i.stock) <= num(i.lowAt);
+            return `<tr>
+              <td class="tname">${esc(i.name)}${i.notes ? `<span class="tsub">${esc(i.notes)}</span>` : ''}</td>
+              <td class="r num">${money(unitCost(i))}</td>
+              <td class="r faint" style="font-size:.76rem;">${i.costMode === 'bulk'
+                ? `${money(num(i.bulkCost))} / ${qty(i.bulkQty)} ${cat.unit}`
+                : 'entered directly'}</td>
+              <td class="r num">${qty(i.stock)} ${cat.unit}${low ? ' <span class="tag tag-lit">low</span>' : ''}</td>
+              <td class="r num faint">${money(num(i.stock) * unitCost(i))}</td>
+              <td class="r"><div class="row-actions">
+                <button class="btn btn-quiet btn-sm" onclick="openStockModal('ingredient','${i.id}')">Stock</button>
+                <button class="btn btn-quiet btn-sm" onclick="openIngredientModal('${i.id}')">Edit</button>
+                <button class="btn btn-quiet btn-sm btn-warn" onclick="removeIngredient('${i.id}')">Delete</button>
+              </div></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('view-ingredients').innerHTML = `
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Raw materials</span>
+        <h2>Ingredients</h2>
+        <p class="lede">Wax, fragrance, wicks, dye and packaging. Enter a unit cost, or enter what a bulk purchase cost and let the unit cost fall out of it.</p>
+      </div>
+      <button class="btn btn-solid" onclick="openIngredientModal()">Add ingredient</button>
+    </div>
+    ${state.ingredients.length ? groups : `
+    <div class="panel"><div class="empty">
+      <h4>The shelf is bare</h4>
+      <p>Add your wax first — it is the ingredient every recipe leans on hardest.</p>
+      <button class="btn" onclick="openIngredientModal()">Add ingredient</button>
+    </div></div>`}`;
+}
+
+function openIngredientModal(id){
+  const i = id ? findIngredient(id) : null;
+  const cat = i ? i.category : 'wax';
+  openModal(`
+    <div class="modal-head">
+      <h3>${i ? 'Edit ingredient' : 'Add ingredient'}</h3>
+      <button class="x" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="inline-fields">
+      <div class="field">
+        <label for="iName">Name</label>
+        <input type="text" id="iName" value="${esc(i ? i.name : '')}" placeholder="Golden Brands 464 soy">
+      </div>
+      <div class="field">
+        <label for="iCat">Category</label>
+        <select id="iCat" onchange="ingredientCatChanged()">
+          ${CATEGORIES.map(c => `<option value="${c.id}" ${c.id === cat ? 'selected' : ''}>${c.label} (${c.unit})</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>How is the cost entered?</label>
+      <div class="seg" id="iCostMode">
+        <button type="button" data-mode="unit" class="${!i || i.costMode !== 'bulk' ? 'active' : ''}" onclick="setCostMode('unit')">Per unit</button>
+        <button type="button" data-mode="bulk" class="${i && i.costMode === 'bulk' ? 'active' : ''}" onclick="setCostMode('bulk')">From a bulk buy</button>
+      </div>
+    </div>
+
+    <div id="costUnit" style="display:${!i || i.costMode !== 'bulk' ? 'block' : 'none'}">
+      <div class="field">
+        <label for="iUnitCost">Cost per <span class="unitLbl">${categoryUnit(cat)}</span></label>
+        <input type="number" id="iUnitCost" step="0.001" min="0" value="${i ? num(i.unitCost) : ''}">
+      </div>
+    </div>
+    <div id="costBulk" style="display:${i && i.costMode === 'bulk' ? 'block' : 'none'}">
+      <div class="inline-fields">
+        <div class="field">
+          <label for="iBulkQty">Quantity bought (<span class="unitLbl">${categoryUnit(cat)}</span>)</label>
+          <input type="number" id="iBulkQty" step="0.01" min="0" value="${i ? num(i.bulkQty) : ''}" oninput="previewBulk()">
+        </div>
+        <div class="field">
+          <label for="iBulkCost">What it cost</label>
+          <input type="number" id="iBulkCost" step="0.01" min="0" value="${i ? num(i.bulkCost) : ''}" oninput="previewBulk()">
+        </div>
+      </div>
+      <div class="hint" id="bulkPreview">&nbsp;</div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="inline-fields">
+      <div class="field">
+        <label for="iStock">On shelf (<span class="unitLbl">${categoryUnit(cat)}</span>)</label>
+        <input type="number" id="iStock" step="0.01" min="0" value="${i ? num(i.stock) : 0}">
+      </div>
+      <div class="field">
+        <label for="iLow">Warn at or below</label>
+        <input type="number" id="iLow" step="0.01" min="0" value="${i ? num(i.lowAt) : 0}">
+      </div>
+    </div>
+    <div class="field">
+      <label for="iNotes">Note</label>
+      <input type="text" id="iNotes" value="${esc(i ? i.notes || '' : '')}" placeholder="supplier, lot, scent family">
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-quiet" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-solid" onclick="saveIngredient(${i ? "'" + i.id + "'" : 'null'})">${i ? 'Save changes' : 'Add ingredient'}</button>
+    </div>`);
+  previewBulk();
+}
+
+function setCostMode(mode){
+  document.querySelectorAll('#iCostMode button').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === mode));
+  document.getElementById('costUnit').style.display = mode === 'unit' ? 'block' : 'none';
+  document.getElementById('costBulk').style.display = mode === 'bulk' ? 'block' : 'none';
+  previewBulk();
+}
+function currentCostMode(){
+  const active = document.querySelector('#iCostMode button.active');
+  return active ? active.dataset.mode : 'unit';
+}
+function ingredientCatChanged(){
+  const u = categoryUnit(document.getElementById('iCat').value);
+  document.querySelectorAll('.unitLbl').forEach(el => el.textContent = u);
+  previewBulk();
+}
+function previewBulk(){
+  const el = document.getElementById('bulkPreview');
+  if (!el) return;
+  const q = num(document.getElementById('iBulkQty').value);
+  const c = num(document.getElementById('iBulkCost').value);
+  const u = categoryUnit(document.getElementById('iCat').value);
+  el.innerHTML = q > 0 ? `Works out to <span class="mono">${money(c / q)}</span> per ${u}.` : '&nbsp;';
+}
+
+function saveIngredient(id){
+  const name = document.getElementById('iName').value.trim();
+  if (!name){ toast('Give the ingredient a name', true); return; }
+  const mode = currentCostMode();
+  const data = {
+    name,
+    category: document.getElementById('iCat').value,
+    costMode: mode,
+    unitCost: num(document.getElementById('iUnitCost').value),
+    bulkQty: num(document.getElementById('iBulkQty').value),
+    bulkCost: num(document.getElementById('iBulkCost').value),
+    stock: num(document.getElementById('iStock').value),
+    lowAt: num(document.getElementById('iLow').value),
+    notes: document.getElementById('iNotes').value.trim()
+  };
+  if (id) Object.assign(findIngredient(id), data);
+  else state.ingredients.push(Object.assign({id: uid()}, data));
+  markDirty(); closeModal(); renderAll();
+  toast(id ? 'Ingredient updated' : 'Ingredient added');
+}
+
+function removeIngredient(id){
+  const used = state.recipes.filter(r =>
+    r.waxId === id || r.fragranceId === id || r.dyeId === id ||
+    (r.wicks || []).some(w => w.id === id) ||
+    (r.packaging || []).some(p => p.id === id));
+  if (used.length){
+    toast('Used by ' + used.length + ' recipe' + (used.length === 1 ? '' : 's') + ' — change those first', true);
+    return;
+  }
+  state.ingredients = state.ingredients.filter(i => i.id !== id);
+  markDirty(); renderAll(); toast('Ingredient deleted');
+}
+
+/* ---------------------- stock adjustment ---------------------- */
+
+function openStockModal(kind, id){
+  const item = kind === 'container' ? findContainer(id) : findIngredient(id);
+  const unit = kind === 'container' ? 'each' : categoryUnit(item.category);
+  openModal(`
+    <div class="modal-head">
+      <h3>${esc(item.name)}</h3>
+      <button class="x" onclick="closeModal()">&times;</button>
+    </div>
+    <p class="dim" style="margin-top:0;">On shelf now: <span class="mono">${qty(item.stock)} ${unit}</span></p>
+    <div class="inline-fields">
+      <div class="field">
+        <label for="stAdd">Received (add)</label>
+        <input type="number" id="stAdd" step="0.01" min="0" placeholder="0">
+      </div>
+      <div class="field">
+        <label for="stSet">Or set the count to</label>
+        <input type="number" id="stSet" step="0.01" min="0" placeholder="counted by hand">
+      </div>
+    </div>
+    <div class="hint">Setting a count wins over adding, so use it after a shelf count.</div>
+    <div class="modal-foot">
+      <button class="btn btn-quiet" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-solid" onclick="applyStock('${kind}','${id}')">Update stock</button>
+    </div>`);
+}
+
+function applyStock(kind, id){
+  const item = kind === 'container' ? findContainer(id) : findIngredient(id);
+  const setVal = document.getElementById('stSet').value;
+  const addVal = document.getElementById('stAdd').value;
+  if (setVal !== '') item.stock = num(setVal);
+  else if (addVal !== '') item.stock = num(item.stock) + num(addVal);
+  else { closeModal(); return; }
+  markDirty(); closeModal(); renderAll();
+  toast('Stock updated');
+}
+</script>
+<script>
+/* =====================================================================
+   RECIPES
+   ===================================================================== */
+
+function renderRecipes(){
+  const cards = state.recipes.map(r => {
+    const b = costBreakdown(r);
+    const c = findContainer(r.containerId);
+    const max = maxFromStock(r);
+    return `
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h3>${esc(r.name)}</h3>
+            <span class="eyebrow">${c ? esc(c.name) + ' · ' : ''}${qty(waxPerCandle(r))} oz wax${r.fragranceId ? ' · ' + qty(r.fragrancePct) + '% fragrance' : ''}</span>
+          </div>
+          <div class="row-actions">
+            <button class="btn btn-sm" onclick="openBatchModal('${r.id}')">Start batch</button>
+            <button class="btn btn-quiet btn-sm" onclick="openRecipeModal('${r.id}')">Edit</button>
+            <button class="btn btn-quiet btn-sm btn-warn" onclick="removeRecipe('${r.id}')">Delete</button>
+          </div>
+        </div>
+        <div class="grid g4" style="margin-bottom:18px;">
+          <div class="stat"><div class="k">Cost per candle</div><div class="v num sm">${money(b.total)}</div></div>
+          <div class="stat"><div class="k">Suggested price</div><div class="v num sm">${money(b.price)}</div><div class="note">&times;${qty(b.markup)} markup</div></div>
+          <div class="stat"><div class="k">Margin per candle</div><div class="v num sm">${money(b.price - b.total)}</div><div class="note">${b.price > 0 ? pct(((b.price - b.total) / b.price) * 100) : '—'}</div></div>
+          <div class="stat"><div class="k">Stock allows</div><div class="v num sm">${qty(max.count,0)}</div><div class="note">${max.limiter ? esc(max.limiter.name) + ' runs out first' : 'nothing required'}</div></div>
+        </div>
+        ${meltBar(b)}
+        ${r.notes ? `<p class="dim" style="font-size:.84rem;margin:16px 0 0;">${esc(r.notes)}</p>` : ''}
+      </div>`;
+  }).join('');
+
+  document.getElementById('view-recipes').innerHTML = `
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Formulations</span>
+        <h2>Recipes</h2>
+        <p class="lede">Each recipe carries its own cost. The bar under it is one candle, broken into what it is made of.</p>
+      </div>
+      <button class="btn btn-solid" onclick="openRecipeModal()">Add recipe</button>
+    </div>
+    ${state.recipes.length ? cards : `
+    <div class="panel"><div class="empty">
+      <h4>No recipes yet</h4>
+      <p>A recipe ties a container to a wax, a fragrance load and a wick. Everything downstream — batches, stock, margin — reads from it.</p>
+      <button class="btn" onclick="openRecipeModal()">Build the first recipe</button>
+    </div></div>`}`;
+}
+
+/* ---------------------- editor ---------------------- */
+
+var draftWicks = [];
+var draftPack = [];
+var draftFillMode = "volume";
+
+function openRecipeModal(id){
+  const r = id ? findRecipe(id) : null;
+  draftWicks = r ? JSON.parse(JSON.stringify(r.wicks || [])) : [];
+  draftPack  = r ? JSON.parse(JSON.stringify(r.packaging || [])) : [];
+  draftFillMode = r ? (r.fillMode || 'volume') : 'volume';
+  if (!draftWicks.length) draftWicks = [{id:'', qty:1}];
+
+  const waxes = ingredientsOf('wax');
+  const frags = ingredientsOf('fragrance');
+  const dyes  = ingredientsOf('dye');
+
+  const opts = (list, sel, blank) =>
+    `<option value="">${blank}</option>` +
+    list.map(x => `<option value="${x.id}" ${x.id === sel ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
+
+  openModal(`
+    <div class="modal-head">
+      <h3>${r ? 'Edit recipe' : 'New recipe'}</h3>
+      <button class="x" onclick="closeModal()">&times;</button>
+    </div>
+
+    <div class="inline-fields">
+      <div class="field">
+        <label for="rName">Name</label>
+        <input type="text" id="rName" value="${esc(r ? r.name : '')}" placeholder="Nevermore — black fig &amp; ash" oninput="previewRecipe()">
+      </div>
+      <div class="field">
+        <label for="rContainer">Container</label>
+        <select id="rContainer" onchange="previewRecipe()">
+          ${opts(state.containers, r ? r.containerId : '', '— pick a container —')}
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Wax quantity</label>
+      <div class="seg" id="rFillMode">
+        <button type="button" data-mode="volume" class="${draftFillMode === 'volume' ? 'active' : ''}" onclick="setFillMode('volume')">From container volume</button>
+        <button type="button" data-mode="weight" class="${draftFillMode === 'weight' ? 'active' : ''}" onclick="setFillMode('weight')">Straight weight</button>
+      </div>
+    </div>
+
+    <div id="fillVolume" style="display:${draftFillMode === 'volume' ? 'block' : 'none'}">
+      <div class="field">
+        <label for="rRatio">Fill ratio (oz wax per fl oz)</label>
+        <input type="number" id="rRatio" step="0.01" min="0" value="${r ? num(r.fillRatio, state.settings.fillRatio) : num(state.settings.fillRatio)}" oninput="previewRecipe()">
+        <div class="hint">Studio default is ${qty(state.settings.fillRatio)}. Override it here if this vessel fills differently.</div>
+      </div>
+    </div>
+    <div id="fillWeight" style="display:${draftFillMode === 'weight' ? 'block' : 'none'}">
+      <div class="field">
+        <label for="rWaxOz">Wax per candle (oz)</label>
+        <input type="number" id="rWaxOz" step="0.1" min="0" value="${r ? num(r.waxOz) : ''}" oninput="previewRecipe()">
+      </div>
+    </div>
+
+    <div class="inline-fields three">
+      <div class="field">
+        <label for="rWax">Wax</label>
+        <select id="rWax" onchange="previewRecipe()">${opts(waxes, r ? r.waxId : '', '— none —')}</select>
+      </div>
+      <div class="field">
+        <label for="rFrag">Fragrance</label>
+        <select id="rFrag" onchange="previewRecipe()">${opts(frags, r ? r.fragranceId : '', '— none —')}</select>
+      </div>
+      <div class="field">
+        <label for="rFragPct">Fragrance load (%)</label>
+        <input type="number" id="rFragPct" step="0.5" min="0" value="${r ? num(r.fragrancePct) : 8}" oninput="previewRecipe()">
+      </div>
+    </div>
+
+    <div class="inline-fields">
+      <div class="field">
+        <label for="rDye">Dye</label>
+        <select id="rDye" onchange="previewRecipe()">${opts(dyes, r ? r.dyeId : '', '— none —')}</select>
+      </div>
+      <div class="field">
+        <label for="rDyeAmt">Dye per candle (g)</label>
+        <input type="number" id="rDyeAmt" step="0.1" min="0" value="${r ? num(r.dyeAmt) : ''}" oninput="previewRecipe()">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="field">
+      <label>Wicks</label>
+      <div id="wickRows"></div>
+      <button class="btn btn-quiet btn-sm" onclick="addWickRow()">Add another wick</button>
+    </div>
+
+    <div class="field">
+      <label>Packaging</label>
+      <div id="packRows"></div>
+      <button class="btn btn-quiet btn-sm" onclick="addPackRow()">Add packaging</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="inline-fields three">
+      <div class="field">
+        <label for="rMinutes">Minutes per candle</label>
+        <input type="number" id="rMinutes" step="0.5" min="0" value="${r ? num(r.minutes, state.settings.minutesPerCandle) : num(state.settings.minutesPerCandle)}" oninput="previewRecipe()">
+      </div>
+      <div class="field">
+        <label for="rOverhead">Overhead override</label>
+        <input type="number" id="rOverhead" step="0.05" min="0" value="${r && r.overheadOverride !== null && r.overheadOverride !== undefined ? num(r.overheadOverride) : ''}" placeholder="${qty(state.settings.overhead)}" oninput="previewRecipe()">
+      </div>
+      <div class="field">
+        <label for="rMarkup">Markup override</label>
+        <input type="number" id="rMarkup" step="0.1" min="0" value="${r && r.markupOverride !== null && r.markupOverride !== undefined ? num(r.markupOverride) : ''}" placeholder="${qty(state.settings.markup)}" oninput="previewRecipe()">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="rNotes">Notes</label>
+      <textarea id="rNotes" rows="2" placeholder="cure time, pour temperature, scent notes">${esc(r ? r.notes || '' : '')}</textarea>
+    </div>
+
+    <div class="panel" style="margin-bottom:0;">
+      <div class="panel-head">
+        <h3 style="font-size:.95rem;">Cost as you build it</h3>
+        <span class="eyebrow" id="previewTotals"></span>
+      </div>
+      <div id="recipePreview"></div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn btn-quiet" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-solid" onclick="saveRecipe(${r ? "'" + r.id + "'" : 'null'})">${r ? 'Save changes' : 'Add recipe'}</button>
+    </div>`, true);
+
+  renderWickRows();
+  renderPackRows();
+  previewRecipe();
+}
+
+function setFillMode(mode){
+  draftFillMode = mode;
+  document.querySelectorAll('#rFillMode button').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === mode));
+  document.getElementById('fillVolume').style.display = mode === 'volume' ? 'block' : 'none';
+  document.getElementById('fillWeight').style.display = mode === 'weight' ? 'block' : 'none';
+  previewRecipe();
+}
+
+function subRow(list, arrName, idx, row){
+  return `<div class="sub-row">
+    <select onchange="${arrName}[${idx}].id=this.value;previewRecipe()">
+      <option value="">— none —</option>
+      ${list.map(x => `<option value="${x.id}" ${x.id === row.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}
+    </select>
+    <input type="number" min="0" step="1" value="${num(row.qty,1)}" oninput="${arrName}[${idx}].qty=parseFloat(this.value)||0;previewRecipe()">
+    <button class="icon-btn" onclick="${arrName === 'draftWicks' ? 'removeWickRow' : 'removePackRow'}(${idx})" title="Remove">&times;</button>
+  </div>`;
+}
+
+function renderWickRows(){
+  const list = ingredientsOf('wick');
+  document.getElementById('wickRows').innerHTML =
+    draftWicks.map((row, i) => subRow(list, 'draftWicks', i, row)).join('') ||
+    '<p class="hint" style="margin:0 0 10px;">No wicks on this recipe.</p>';
+}
+function renderPackRows(){
+  const list = ingredientsOf('packaging').concat(ingredientsOf('other'));
+  document.getElementById('packRows').innerHTML =
+    draftPack.map((row, i) => subRow(list, 'draftPack', i, row)).join('') ||
+    '<p class="hint" style="margin:0 0 10px;">No packaging on this recipe.</p>';
+}
+function addWickRow(){ draftWicks.push({id:'', qty:1}); renderWickRows(); previewRecipe(); }
+function removeWickRow(i){ draftWicks.splice(i,1); renderWickRows(); previewRecipe(); }
+function addPackRow(){ draftPack.push({id:'', qty:1}); renderPackRows(); previewRecipe(); }
+function removePackRow(i){ draftPack.splice(i,1); renderPackRows(); previewRecipe(); }
+
+function readRecipeForm(){
+  const v = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  const optional = id => { const raw = v(id); return raw === '' ? null : num(raw); };
+  return {
+    name: v('rName').trim(),
+    containerId: v('rContainer'),
+    fillMode: draftFillMode,
+    fillRatio: num(v('rRatio'), state.settings.fillRatio),
+    waxOz: num(v('rWaxOz')),
+    waxId: v('rWax'),
+    fragranceId: v('rFrag'),
+    fragrancePct: num(v('rFragPct')),
+    dyeId: v('rDye'),
+    dyeAmt: num(v('rDyeAmt')),
+    wicks: draftWicks.filter(w => w.id),
+    packaging: draftPack.filter(p => p.id),
+    minutes: num(v('rMinutes'), state.settings.minutesPerCandle),
+    overheadOverride: optional('rOverhead'),
+    markupOverride: optional('rMarkup'),
+    notes: v('rNotes').trim()
+  };
+}
+
+function previewRecipe(){
+  const target = document.getElementById('recipePreview');
+  if (!target) return;
+  const draft = readRecipeForm();
+  const b = costBreakdown(draft);
+  target.innerHTML = meltBar(b);
+  document.getElementById('previewTotals').textContent =
+    `${qty(waxPerCandle(draft))} oz wax · ${money(b.total)} cost · ${money(b.price)} price`;
+}
+
+function saveRecipe(id){
+  const data = readRecipeForm();
+  if (!data.name){ toast('Give the recipe a name', true); return; }
+  if (data.fillMode === 'volume' && !data.containerId){
+    toast('Pick a container, or switch to straight weight', true); return;
+  }
+  if (id) Object.assign(findRecipe(id), data);
+  else state.recipes.push(Object.assign({id: uid()}, data));
+  markDirty(); closeModal(); renderAll();
+  toast(id ? 'Recipe updated' : 'Recipe added');
+}
+
+function removeRecipe(id){
+  const open = state.batches.filter(b => b.recipeId === id && b.status === 'open');
+  if (open.length){ toast('Finish or cancel its open batch first', true); return; }
+  if (onHand(id) > 0){ toast('There is still finished stock on this recipe', true); return; }
+  state.recipes = state.recipes.filter(r => r.id !== id);
+  state.finished = state.finished.filter(f => f.recipeId !== id);
+  markDirty(); renderAll(); toast('Recipe deleted');
+}
+</script>
+<script>
+/* =====================================================================
+   BATCHES
+   Starting a batch takes materials off the shelf immediately — the wax
+   is gone the moment it is in the pot. Finished candles are only
+   counted when you say the batch is done.
+   ===================================================================== */
+
+function renderBatches(){
+  const open = state.batches.filter(b => b.status === 'open');
+  const done = state.batches.filter(b => b.status !== 'open').slice().reverse();
+
+  const card = b => {
+    const r = findRecipe(b.recipeId);
+    return `
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h3>${r ? esc(r.name) : 'Deleted recipe'}</h3>
+            <span class="eyebrow">${qty(b.count,0)} candles · started ${niceDate(b.startedAt)}${b.completedAt ? ' · finished ' + niceDate(b.completedAt) : ''}</span>
+          </div>
+          <div class="row-actions">
+            ${b.status === 'open' ? `
+              <button class="btn btn-solid btn-sm" onclick="completeBatch('${b.id}')">Candles complete</button>
+              <button class="btn btn-quiet btn-sm btn-warn" onclick="cancelBatch('${b.id}')">Cancel &amp; restock</button>`
+            : `<span class="tag ${b.status === 'complete' ? 'tag-solid' : ''}">${b.status}</span>`}
+          </div>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Taken from the shelf</th><th class="r">Quantity</th></tr></thead>
+          <tbody>${(b.lines || []).map(l => `
+            <tr><td>${esc(l.name)}</td><td class="r num">${qty(l.qty)} ${esc(l.unit)}</td></tr>`).join('')}
+          </tbody>
+        </table></div>
+        <p class="hint" style="margin-top:12px;">Cost snapshot: <span class="mono">${money(num(b.unitCost))}</span> per candle,
+          <span class="mono">${money(num(b.unitCost) * num(b.count))}</span> for the run.</p>
+      </div>`;
+  };
+
+  document.getElementById('view-batches').innerHTML = `
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">The pour</span>
+        <h2>Batches</h2>
+        <p class="lede">Materials come off the shelf when a batch starts. Candles only reach finished stock when you mark the batch complete.</p>
+      </div>
+      <button class="btn btn-solid" onclick="openBatchModal()" ${state.recipes.length ? '' : 'disabled'}>Start a batch</button>
+    </div>
+
+    ${open.length ? `<div class="eyebrow" style="margin-bottom:12px;">Open — ${open.length}</div>${open.map(card).join('')}` : ''}
+
+    ${!open.length && !done.length ? `
+    <div class="panel"><div class="empty">
+      <h4>No batches yet</h4>
+      <p>${state.recipes.length ? 'Pick a recipe and a size. The app will tell you what runs short before you start.' : 'Build a recipe first, then come back and pour it.'}</p>
+      <button class="btn" onclick="${state.recipes.length ? 'openBatchModal()' : "showView('recipes')"}">${state.recipes.length ? 'Start a batch' : 'Go to recipes'}</button>
+    </div></div>` : ''}
+
+    ${done.length ? `<div class="divider"></div><div class="eyebrow" style="margin-bottom:12px;">History — ${done.length}</div>${done.map(card).join('')}` : ''}`;
+}
+
+/* ---------------------- start a batch ---------------------- */
+
+var batchScaleMode = 'count';
+
+function openBatchModal(recipeId){
+  if (!state.recipes.length){ toast('Build a recipe first', true); return; }
+  batchScaleMode = 'count';
+  const sel = recipeId || state.recipes[0].id;
+  openModal(`
+    <div class="modal-head">
+      <h3>Start a batch</h3>
+      <button class="x" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="field">
+      <label for="bRecipe">Recipe</label>
+      <select id="bRecipe" onchange="batchRecalc()">
+        ${state.recipes.map(r => `<option value="${r.id}" ${r.id === sel ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field">
+      <label>Size the run by</label>
+      <div class="seg" id="bScale">
+        <button type="button" data-mode="count" class="active" onclick="setBatchScale('count')">Candle count</button>
+        <button type="button" data-mode="wax" class="" onclick="setBatchScale('wax')">Total wax</button>
+        <button type="button" data-mode="max" class="" onclick="setBatchScale('max')">Max from stock</button>
+      </div>
+    </div>
+    <div class="field" id="bCountField">
+      <label for="bCount">Candles</label>
+      <input type="number" id="bCount" min="1" step="1" value="6" oninput="batchRecalc()">
+    </div>
+    <div class="field" id="bWaxField" style="display:none;">
+      <label for="bWax">Total wax to pour (oz)</label>
+      <input type="number" id="bWax" min="0" step="0.5" value="32" oninput="batchRecalc()">
+    </div>
+    <div id="batchReadout"></div>
+    <div class="modal-foot">
+      <button class="btn btn-quiet" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-solid" id="bStart" onclick="startBatch()">Start batch</button>
+    </div>`, true);
+  batchRecalc();
+}
+
+function setBatchScale(mode){
+  batchScaleMode = mode;
+  document.querySelectorAll('#bScale button').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === mode));
+  document.getElementById('bCountField').style.display = mode === 'count' ? 'block' : 'none';
+  document.getElementById('bWaxField').style.display = mode === 'wax' ? 'block' : 'none';
+  batchRecalc();
+}
+
+function plannedCount(recipe){
+  if (batchScaleMode === 'count') return Math.max(0, Math.floor(num(document.getElementById('bCount').value)));
+  if (batchScaleMode === 'wax'){
+    const per = waxPerCandle(recipe);
+    return per > 0 ? Math.floor(num(document.getElementById('bWax').value) / per) : 0;
+  }
+  return maxFromStock(recipe).count;
+}
+
+function batchRecalc(){
+  const recipe = findRecipe(document.getElementById('bRecipe').value);
+  const count = plannedCount(recipe);
+  const b = costBreakdown(recipe);
+  const reqs = requirements(recipe);
+  const short = shortages(recipe, count);
+  const max = maxFromStock(recipe);
+
+  document.getElementById('batchReadout').innerHTML = `
+    <div class="grid g3" style="margin-bottom:16px;">
+      <div class="stat"><div class="k">Candles</div><div class="v num sm">${qty(count,0)}</div>
+        ${batchScaleMode === 'max' && max.limiter ? `<div class="note">${esc(max.limiter.name)} is the limit</div>` : ''}</div>
+      <div class="stat"><div class="k">Wax needed</div><div class="v num sm">${qty(waxPerCandle(recipe) * count)} oz</div></div>
+      <div class="stat"><div class="k">Batch cost</div><div class="v num sm">${money(b.total * count)}</div>
+        <div class="note">${money(b.total)} each</div></div>
+    </div>
+    ${short.length ? `
+      <div class="panel" style="border-color:var(--flame);margin-bottom:16px;">
+        <div class="eyebrow warn-text" style="margin-bottom:10px;">Not enough on the shelf</div>
+        ${short.map(s => `<div style="display:flex;justify-content:space-between;gap:12px;font-size:.84rem;padding:5px 0;">
+          <span>${esc(s.name)}</span>
+          <span class="mono warn-text">short ${qty(s.short)} ${esc(s.unit)}</span>
+        </div>`).join('')}
+        <p class="hint" style="margin-bottom:0;">You can still start the batch — stock will go negative and you can correct it later.</p>
+      </div>` : ''}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Will be deducted</th><th class="r">Per candle</th><th class="r">This batch</th><th class="r">On shelf</th></tr></thead>
+      <tbody>${reqs.map(r => `
+        <tr>
+          <td>${esc(r.name)}</td>
+          <td class="r num faint">${qty(r.per)} ${esc(r.unit)}</td>
+          <td class="r num">${qty(r.per * count)} ${esc(r.unit)}</td>
+          <td class="r num ${r.stock < r.per * count ? 'warn-text' : 'faint'}">${qty(r.stock)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+
+  document.getElementById('bStart').disabled = count < 1;
+}
+
+function startBatch(){
+  const recipe = findRecipe(document.getElementById('bRecipe').value);
+  const count = plannedCount(recipe);
+  if (count < 1){ toast('That comes out to zero candles', true); return; }
+
+  const lines = requirements(recipe).map(r => ({
+    kind: r.kind, id: r.id, name: r.name, unit: r.unit, qty: r.per * count
+  }));
+
+  lines.forEach(l => {
+    const item = l.kind === 'container' ? findContainer(l.id) : findIngredient(l.id);
+    if (item) item.stock = num(item.stock) - l.qty;
+  });
+
+  const b = costBreakdown(recipe);
+  state.batches.push({
+    id: uid(),
+    recipeId: recipe.id,
+    count,
+    status: 'open',
+    startedAt: new Date().toISOString(),
+    completedAt: null,
+    unitCost: b.total,
+    lines
+  });
+
+  markDirty(); closeModal(); renderAll(); showView('batches');
+  toast(count + ' candles started — materials deducted');
+}
+
+function completeBatch(id){
+  const b = state.batches.find(x => x.id === id);
+  if (!b || b.status !== 'open') return;
+  b.status = 'complete';
+  b.completedAt = new Date().toISOString();
+  const f = finishedFor(b.recipeId);
+  f.qty += num(b.count);
+  f.totalCost += num(b.count) * num(b.unitCost);
+  markDirty(); renderAll();
+  toast(qty(b.count,0) + ' candles moved to finished stock');
+}
+
+function cancelBatch(id){
+  const b = state.batches.find(x => x.id === id);
+  if (!b || b.status !== 'open') return;
+  (b.lines || []).forEach(l => {
+    const item = l.kind === 'container' ? findContainer(l.id) : findIngredient(l.id);
+    if (item) item.stock = num(item.stock) + num(l.qty);
+  });
+  b.status = 'cancelled';
+  b.completedAt = new Date().toISOString();
+  markDirty(); renderAll();
+  toast('Batch cancelled — materials returned to the shelf');
+}
+</script>
+<script>
+/* =====================================================================
+   FINISHED STOCK
+   ===================================================================== */
+
+function renderFinished(){
+  const rows = state.finished
+    .filter(f => f.qty !== 0 || f.totalCost !== 0)
+    .map(f => {
+      const r = findRecipe(f.recipeId);
+      if (!r) return '';
+      const b = costBreakdown(r);
+      const avg = avgUnitCost(f.recipeId);
+      return `<tr>
+        <td class="tname">${esc(r.name)}</td>
+        <td class="r num">${qty(f.qty,0)}</td>
+        <td class="r num">${money(avg)}</td>
+        <td class="r num">${money(f.totalCost)}</td>
+        <td class="r num faint">${money(b.price)}</td>
+        <td class="r num">${money(f.qty * b.price)}</td>
+        <td class="r"><div class="row-actions">
+          <button class="btn btn-sm" onclick="openSaleModal('${r.id}')" ${f.qty > 0 ? '' : 'disabled'}>Sell</button>
+          <button class="btn btn-quiet btn-sm btn-warn" onclick="openWriteOffModal('${r.id}')" ${f.qty > 0 ? '' : 'disabled'}>Write off</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+
+  const t = totals();
+
+  document.getElementById('view-finished').innerHTML = `
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">On the shelf</span>
+        <h2>Finished stock</h2>
+        <p class="lede">Candles that exist. Unit cost is the average of what the batches behind them actually cost.</p>
+      </div>
+      <button class="btn btn-solid" onclick="openSaleModal()" ${t.unitsOnHand > 0 ? '' : 'disabled'}>Log a sale</button>
+    </div>
+    <div class="panel">
+      ${rows ? `
+      <div class="table-wrap"><table>
+        <thead><tr>
+          <th>Recipe</th><th class="r">On hand</th><th class="r">Avg unit cost</th>
+          <th class="r">Value at cost</th><th class="r">Suggested price</th><th class="r">Value at price</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>` : `
+      <div class="empty">
+        <h4>Nothing finished yet</h4>
+        <p>Candles land here when you mark a batch complete — not when you start it.</p>
+        <button class="btn" onclick="showView('batches')">Go to batches</button>
+      </div>`}
+    </div>`;
+}
+
+function openWriteOffModal(recipeId){
+  const r = findRecipe(recipeId);
+  openModal(`
+    <div class="modal-head"><h3>Write off — ${esc(r.name)}</h3><button class="x" onclick="closeModal()">&times;</button></div>
+    <p class="dim" style="margin-top:0;">Breakage, samples, gifts, a bad cure. These leave stock without producing revenue, so they stay out of the margin figures.</p>
+    <div class="field">
+      <label for="woQty">How many (on hand: ${qty(onHand(recipeId),0)})</label>
+      <input type="number" id="woQty" min="1" step="1" value="1">
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-quiet" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-warn" onclick="applyWriteOff('${recipeId}')">Write off</button>
+    </div>`);
+}
+
+function applyWriteOff(recipeId){
+  const n = Math.floor(num(document.getElementById('woQty').value));
+  const f = finishedFor(recipeId);
+  if (n < 1 || n > f.qty){ toast('Enter a number you actually have', true); return; }
+  const avg = avgUnitCost(recipeId);
+  f.qty -= n;
+  f.totalCost = Math.max(0, f.totalCost - n * avg);
+  markDirty(); closeModal(); renderAll();
+  toast(n + ' written off');
+}
+
+/* =====================================================================
+   SALES
+   ===================================================================== */
+
+function renderSales(){
+  const t = totals();
+  const sales = state.sales.slice().sort((a,b) => (b.date || '').localeCompare(a.date || ''));
+
+  const byChannel = CHANNELS.map(ch => {
+    const rows = state.sales.filter(s => (s.channel || 'Other') === ch);
+    const revenue = rows.reduce((s,x) => s + num(x.qty) * num(x.unitPrice), 0);
+    const cost = rows.reduce((s,x) => s + num(x.qty) * num(x.unitCost), 0);
+    const units = rows.reduce((s,x) => s + num(x.qty), 0);
+    return {ch, revenue, cost, units, margin: revenue - cost};
+  }).filter(c => c.units > 0);
+
+  const maxRev = Math.max(1, ...byChannel.map(c => c.revenue));
+
+  document.getElementById('view-sales').innerHTML = `
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">What left the shelf</span>
+        <h2>Sales</h2>
+        <p class="lede">Every sale carries the cost of the candle sold, so margin is what actually happened rather than what the recipe hoped for.</p>
+      </div>
+      <button class="btn btn-solid" onclick="openSaleModal()" ${t.unitsOnHand > 0 || state.sales.length ? '' : 'disabled'}>Log a sale</button>
+    </div>
+
+    <div class="grid g4" style="margin-bottom:18px;">
+      <div class="stat"><div class="k">Revenue</div><div class="v num">${money(t.revenue)}</div></div>
+      <div class="stat"><div class="k">Cost of goods</div><div class="v num">${money(t.cogs)}</div></div>
+      <div class="stat"><div class="k">Margin</div><div class="v num">${money(t.margin)}</div>
+        <div class="note">${isNaN(t.marginPct) ? '—' : pct(t.marginPct)}</div></div>
+      <div class="stat"><div class="k">Candles sold</div><div class="v num">${qty(t.unitsSold,0)}</div></div>
+    </div>
+
+    ${byChannel.length ? `
+    <div class="panel">
+      <div class="panel-head"><h3>Where it sold</h3><span class="eyebrow">revenue by channel</span></div>
+      ${byChannel.map(c => `
+        <div style="margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;font-size:.84rem;">
+            <span>${esc(c.ch)} <span class="faint">· ${qty(c.units,0)} candles</span></span>
+            <span class="mono">${money(c.revenue)} <span class="faint">/ ${money(c.margin)} kept</span></span>
+          </div>
+          <div class="bar-mini"><span style="width:${(c.revenue / maxRev) * 100}%"></span></div>
+        </div>`).join('')}
+    </div>` : ''}
+
+    <div class="panel">
+      <div class="panel-head"><h3>Sale ledger</h3><span class="eyebrow">${sales.length} entr${sales.length === 1 ? 'y' : 'ies'}</span></div>
+      ${sales.length ? `
+      <div class="table-wrap"><table>
+        <thead><tr>
+          <th>Date</th><th>Recipe</th><th>Channel</th>
+          <th class="r">Qty</th><th class="r">Price each</th><th class="r">Cost each</th>
+          <th class="r">Revenue</th><th class="r">Margin</th><th></th>
+        </tr></thead>
+        <tbody>${sales.map(s => {
+          const r = findRecipe(s.recipeId);
+          const rev = num(s.qty) * num(s.unitPrice);
+          const marg = rev - num(s.qty) * num(s.unitCost);
+          return `<tr>
+            <td class="num nowrap">${niceDate(s.date)}</td>
+            <td class="tname">${r ? esc(r.name) : 'Deleted recipe'}${s.notes ? `<span class="tsub">${esc(s.notes)}</span>` : ''}</td>
+            <td><span class="tag">${esc(s.channel || 'Other')}</span></td>
+            <td class="r num">${qty(s.qty,0)}</td>
+            <td class="r num">${money(s.unitPrice)}</td>
+            <td class="r num faint">${money(s.unitCost)}</td>
+            <td class="r num">${money(rev)}</td>
+            <td class="r num ${marg < 0 ? 'warn-text' : ''}">${money(marg)}</td>
+            <td class="r"><button class="btn btn-quiet btn-sm btn-warn" onclick="removeSale('${s.id}')">Undo</button></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>` : `
+      <div class="empty">
+        <h4>No sales recorded</h4>
+        <p>Log what sells and the dashboard stops guessing — real price, real margin, real sell-through per recipe.</p>
+        <button class="btn" onclick="openSaleModal()" ${t.unitsOnHand > 0 ? '' : 'disabled'}>Log a sale</button>
+      </div>`}
+    </div>`;
+}
+
+function openSaleModal(recipeId){
+  const stocked = state.finished.filter(f => f.qty > 0 && findRecipe(f.recipeId));
+  if (!stocked.length){ toast('No finished candles to sell yet', true); return; }
+  const sel = recipeId && stocked.some(f => f.recipeId === recipeId) ? recipeId : stocked[0].recipeId;
+
+  openModal(`
+    <div class="modal-head"><h3>Log a sale</h3><button class="x" onclick="closeModal()">&times;</button></div>
+    <div class="field">
+      <label for="sRecipe">Recipe</label>
+      <select id="sRecipe" onchange="saleRecipeChanged()">
+        ${stocked.map(f => {
+          const r = findRecipe(f.recipeId);
+          return `<option value="${f.recipeId}" ${f.recipeId === sel ? 'selected' : ''}>${esc(r.name)} — ${qty(f.qty,0)} on hand</option>`;
+        }).join('')}
+      </select>
+    </div>
+    <div class="inline-fields three">
+      <div class="field">
+        <label for="sQty">Candles sold</label>
+        <input type="number" id="sQty" min="1" step="1" value="1" oninput="saleRecalc()">
+      </div>
+      <div class="field">
+        <label for="sPrice">Price each</label>
+        <input type="number" id="sPrice" min="0" step="0.01" value="" oninput="saleRecalc()">
+      </div>
+      <div class="field">
+        <label for="sDate">Date</label>
+        <input type="date" id="sDate" value="${today()}">
+      </div>
+    </div>
+    <div class="inline-fields">
+      <div class="field">
+        <label for="sChannel">Channel</label>
+        <select id="sChannel">${CHANNELS.map(c => `<option value="${c}">${c}</option>`).join('')}</select>
+      </div>
+      <div class="field">
+        <label for="sNotes">Note</label>
+        <input type="text" id="sNotes" placeholder="market name, buyer, order number">
+      </div>
+    </div>
+    <div id="saleReadout"></div>
+    <div class="modal-foot">
+      <button class="btn btn-quiet" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-solid" id="sSave" onclick="saveSale()">Record sale</button>
+    </div>`);
+  saleRecipeChanged();
+}
+
+function saleRecipeChanged(){
+  const id = document.getElementById('sRecipe').value;
+  const r = findRecipe(id);
+  const b = costBreakdown(r);
+  const priceEl = document.getElementById('sPrice');
+  if (priceEl && !priceEl.dataset.touched) priceEl.value = b.price.toFixed(2);
+  saleRecalc();
+}
+
+function saleRecalc(){
+  const id = document.getElementById('sRecipe').value;
+  const r = findRecipe(id);
+  const b = costBreakdown(r);
+  const n = Math.floor(num(document.getElementById('sQty').value));
+  const price = num(document.getElementById('sPrice').value);
+  const cost = avgUnitCost(id);
+  const hand = onHand(id);
+  const revenue = n * price;
+  const margin = revenue - n * cost;
+  const over = n > hand;
+
+  document.getElementById('sPrice').dataset.touched = '1';
+  document.getElementById('saleReadout').innerHTML = `
+    <div class="grid g3">
+      <div class="stat"><div class="k">Revenue</div><div class="v num sm">${money(revenue)}</div></div>
+      <div class="stat"><div class="k">Cost of goods</div><div class="v num sm">${money(n * cost)}</div>
+        <div class="note">${money(cost)} each</div></div>
+      <div class="stat ${margin < 0 ? 'lit' : ''}"><div class="k">Margin</div><div class="v num sm">${money(margin)}</div>
+        <div class="note">${revenue > 0 ? pct((margin / revenue) * 100) : '—'}</div></div>
+    </div>
+    ${price < b.price ? `<p class="hint">Suggested price is ${money(b.price)}. Selling under it is fine — the ledger records what you charged.</p>` : ''}
+    ${over ? `<p class="hint warn-text">Only ${qty(hand,0)} on hand.</p>` : ''}`;
+
+  document.getElementById('sSave').disabled = n < 1 || over;
+}
+
+function saveSale(){
+  const recipeId = document.getElementById('sRecipe').value;
+  const n = Math.floor(num(document.getElementById('sQty').value));
+  const f = finishedFor(recipeId);
+  if (n < 1 || n > f.qty){ toast('You do not have that many on hand', true); return; }
+
+  const unitCostAtSale = avgUnitCost(recipeId);
+  state.sales.push({
+    id: uid(),
+    recipeId,
+    qty: n,
+    unitPrice: num(document.getElementById('sPrice').value),
+    unitCost: unitCostAtSale,
+    channel: document.getElementById('sChannel').value,
+    date: document.getElementById('sDate').value || today(),
+    notes: document.getElementById('sNotes').value.trim()
+  });
+
+  f.qty -= n;
+  f.totalCost = Math.max(0, f.totalCost - n * unitCostAtSale);
+
+  markDirty(); closeModal(); renderAll(); showView('sales');
+  toast(n + ' sold — stock updated');
+}
+
+function removeSale(id){
+  const s = state.sales.find(x => x.id === id);
+  if (!s) return;
+  const f = finishedFor(s.recipeId);
+  f.qty += num(s.qty);
+  f.totalCost += num(s.qty) * num(s.unitCost);
+  state.sales = state.sales.filter(x => x.id !== id);
+  markDirty(); renderAll();
+  toast('Sale reversed — candles back on the shelf');
+}
+</script>
+<script>
+/* =====================================================================
+   WIRING
+   ===================================================================== */
+
+document.getElementById('saveBtn').addEventListener('click', saveFile);
+
+document.getElementById('loadBtn').addEventListener('click', () => {
+  if (dirty && !confirm('Unsaved changes will be lost when a file is loaded. Continue?')) return;
+  document.getElementById('loadFileInput').click();
+});
+
+document.getElementById('loadFileInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      loadFromText(ev.target.result);
+      toast('Ledger loaded');
+    } catch (err) {
+      toast('Could not load: ' + err.message, true);
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+});
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => showView(tab.dataset.view));
+});
+
+document.getElementById('modalOverlay').addEventListener('click', e => {
+  if (e.target.id === 'modalOverlay') closeModal();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+window.addEventListener('beforeunload', e => {
+  if (dirty){ e.preventDefault(); e.returnValue = ''; }
+});
+
+renderAll();
+window.__WL_READY__ = true;
+</script>
+</body>
+</html>
